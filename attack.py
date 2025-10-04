@@ -13,7 +13,7 @@ TARGET_URL = os.getenv("TARGET_URL", "https://example.com")
 DURATION = int(os.getenv("DURATION", "60"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "50"))
 REQ_PER_SEC = int(os.getenv("REQ_PER_SEC", "10"))
-PROXY_FILE = os.getenv("PROXY_FILE", "")
+PROXY_FILE = os.getenv("PROXY_FILE", "proxy.txt")
 METHODS = os.getenv("METHODS", "GET,POST,DELETE,RESET").split(",")
 
 # User agents
