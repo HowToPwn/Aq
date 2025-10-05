@@ -66,35 +66,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: attack-logs-${{ matrix.instance }}
-        path: attack_logs.txt    strategy:
-      matrix:
-        instance: [1, 2, 3, 4, 5]
-        
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '16'
-        
-    - name: Install dependencies
-      run: |
-        npm install colors request
-        
-    - name: Run attack
-      env:
-        TARGET: ${{ github.event.inputs.target }}
-        TIME: ${{ github.event.inputs.time }}
-        THREAD: ${{ github.event.inputs.thread }}
-        PROXY_FILE: ${{ github.event.inputs.proxyfile }}
-        RPS: ${{ github.event.inputs.rps }}
-        MODE: ${{ github.event.inputs.mode }}
-      run: node script.js $TARGET $TIME $THREAD $PROXY_FILE $RPS $MODE
-      
-    - name: Upload logs
-      uses: actions/upload-artifact@v3
-      with:
-        name: attack-logs-${{ matrix.instance }}
         path: attack_logs.txt
