@@ -1,0 +1,61 @@
+name: Proxy Scraper v4
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_ip:
+        description: 'Starting IP address'
+        required: true
+        type: string
+        default: '0.0.0.0'
+      end_ip:
+        description: 'Ending IP address'
+        required: true
+        type: string
+        default: '225.225.225.225'
+      ports:
+        description: 'Ports to check (comma separated)'
+        required: true
+        type: string
+        default: '80,8080,3128,8888'
+      timeout:
+        description: 'Connection timeout in milliseconds'
+        required: true
+        type: number
+        default: 3000
+      max_workers:
+        description: 'Maximum number of worker threads'
+        required: true
+        type: number
+        default: 100
+  push:
+    branches: [ main ]
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest v4
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Run Proxy Scraper v4
+      run: |
+        node proxy-scraper.js --start-ip=${{ inputs.start_ip }} --end-ip=${{ inputs.end_ip }} --ports=${{ inputs.ports }} --timeout=${{ inputs.timeout }} --max-workers=${{ inputs.max_workers }}
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      
+    - name: Run default scrape v4
+      run: |
+        node proxy-scraper.js --start-ip=0.0.0.0 --end-ip=225.225.225.225 --ports=80,8080,3128,8888 --timeout=3000 --max-workers=100
+      if: ${{ github.event_name != 'workflow_dispatch' }}
+      
+    - name: Upload proxy file v4
+      uses: actions/upload-artifact@v3
+      with:
+        name: proxy-list
+        path: proxy.txt
